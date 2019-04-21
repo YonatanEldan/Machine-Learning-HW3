@@ -17,7 +17,7 @@ class NaiveNormalClassDistribution():
         """
         self.class_value = class_value
         self.dataset = dataset
-        self.classDataset = self.class_data(dataset)
+        self.classDataset = class_data(dataset,class_value)
         self.mean = self.classDataset.mean(axis=0)
         self.std = self.classDataset.std(axis=0)
 
@@ -45,16 +45,6 @@ class NaiveNormalClassDistribution():
         """
         return ((self.get_prior()*self.get_instance_likelihood(x)))
 
-    # create a data specific to the class
-    def class_data(self,dataset):
-        separated = []
-        for i in range(len(dataset)):
-            vector = dataset[i]
-            if (vector[-1] == self.class_value):
-                vector = np.delete(vector, -1)
-                separated.append(vector)
-        # returns a numpy array
-        return np.array(separated)
 
 class MultiNormalClassDistribution():
     def __init__(self, dataset, class_value):
@@ -68,7 +58,7 @@ class MultiNormalClassDistribution():
         """
         self.class_value = class_value
         self.dataset = dataset
-        self.classDataset = self.class_data1(dataset)
+        self.classDataset = class_data(dataset,class_value)
         self.mean = self.classDataset.mean(axis=0)
         self.cov = np.cov(self.classDataset,rowvar=False)
         
@@ -91,16 +81,7 @@ class MultiNormalClassDistribution():
         """
         return ((self.get_prior()*self.get_instance_likelihood(x)))
     
-    # create a data specific to the class   
-    def class_data1(self,dataset):
-        separated = []
-        for i in range(len(dataset)):
-            vector = dataset[i]
-            if (vector[-1] == self.class_value):
-                vector = np.delete(vector, -1)
-                separated.append(vector)
-        # returns a numpy array
-        return np.array(separated)    
+  
 
 def normal_pdf(x, mean, std):
     """
@@ -119,8 +100,6 @@ def normal_pdf(x, mean, std):
     insideExp = -(np.square(x-mean)/(2*np.square(std)))
     expo = np.exp(insideExp)
     pdfCalc *= expo
-    
-
     return pdfCalc
 
 
@@ -136,14 +115,24 @@ def multi_normal_pdf(x, mean, cov):
     Returns the normal distribution pdf according to the given mean and var for the given x.    
     """
     size = len(x)
-    norm_const = 1.0/ ( math.pow((2*pi),float(size)/2) * math.pow(det,1.0/2) )
-    x_mu = matrix(x - mu)
-    inv = self.cov.I        
+    #det - matrix determinent
+    det = np.linalg.det(cov)
+    norm_const = 1.0/ (((2*np.pi)**float(size)/2) * np.sqrt(det))
+    x_mu = np.matrix(x - mean)
+    inv = np.linalg.inv(cov)       
     result = np.exp(-0.5 * (x_mu * inv * x_mu.T))
-    print(norm_const * result)
-    return norm_const * result
+    return (norm_const * result).sum()
 
-
+# create a data specific to the class
+def class_data(dataset,class_value):
+    separated = []
+    for i in range(len(dataset)):
+        vector = dataset[i]
+        if (vector[-1] == class_value):
+            vector = np.delete(vector, -1)
+            separated.append(vector)
+    # returns a numpy array
+    return np.array(separated)
 ####################################################################################################
 #                                            Part B
 ####################################################################################################
@@ -160,26 +149,39 @@ class DiscreteNBClassDistribution():
         - dataset: The dataset from which to compute the probabilites (Numpy Array).
         - class_value : Compute the relevant parameters only for instances from the given class.
         """
-        pass
+        self.class_value = class_value
+        self.dataset = dataset
+        self.classDataset = class_data(dataset,class_value)
     
     def get_prior(self):
         """
         Returns the prior porbability of the class according to the dataset distribution.
         """
-        return 1
+        return (len(self.classDataset)/len(self.dataset))
     
     def get_instance_likelihood(self, x):
         """
         Returns the likelihhod porbability of the instance under the class according to the dataset distribution.
         """
-        return 1
+        prob = 1
+        for i in range(len(x)):
+           featureData = self.classDataset[:,i]
+           Nij = (featureData == x[i]).sum()
+           Ni = float(len(self.classDataset))
+           Vj = len(np.unique(featureData))
+           prob*= ((Nij+1)/(Ni+Vj))
+           #print('Nij :%d , Ni : %d , Vj : %d, prob %d', Nij,Ni,Vj,prob)
+        
+        return prob 
+        
     
     def get_instance_posterior(self, x):
         """
         Returns the posterior porbability of the instance under the class according to the dataset distribution.
         * Ignoring p(x)
         """
-        return 1
+        return ((self.get_prior()*self.get_instance_likelihood(x)))
+
 
     
 ####################################################################################################
